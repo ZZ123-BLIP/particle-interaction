@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>移动端色彩粒子</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+  <style>
+    body { 
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-touch-callout: none;
+      touch-action: manipulation;
+    }
+    .control { 
+      position: absolute; 
+      top: 10px; 
+      left: 10px; 
+      z-index: 100;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 8px 12px;
+      font-size: 14px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    let mass = [];
+    let positionX = [];
+    let positionY = [];
+    let velocityX = [];
+    let velocityY = [];
+    let particleColors = [];
+    let palette = [];
+    let img;
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      noStroke();
+      
+      // 移动端控制按钮
+      let controls = createDiv();
+      controls.class('control');
+      
+      let uploadBtn = createFileInput(handleFile);
+      uploadBtn.parent(controls);
+      
+      let clearBtn = createButton('清除');
+      clearBtn.mousePressed(clearParticles);
+      clearBtn.parent(controls);
+
+      // 初始化颜色
+      palette = [
+        color(255, 0, 0, 192),
+        color(0, 255, 0, 192),
+        color(0, 0, 255, 192),
+        color(255, 255, 0, 192),
+        color(255, 0, 255, 192)
+      ];
+    }
+
+    function draw() {
+      background(255);
+      
+      // 粒子物理模拟
+      for (let particleA = 0; particleA < mass.length; particleA++) {
+        let accelerationX = 0, accelerationY = 0;
+        
+        for (let particleB = 0; particleB < mass.length; particleB++) {
+          if (particleA !== particleB) {
+            let distanceX = positionX[particleB] - positionX[particleA];
+            let distanceY = positionY[particleB] - positionY[particleA];
+            let distance = sqrt(distanceX * distanceX + distanceY * distanceY);
+            
+            if (distance < 1) distance = 1;
+            let force = (distance - 320) * mass[particleB] / distance;
+            accelerationX += force * distanceX;
+            accelerationY += force * distanceY;
+          }
+        }
+
+        velocityX[particleA] = velocityX[particleA] * 0.99 + accelerationX * mass[particleA];
+        velocityY[particleA] = velocityY[particleA] * 0.99 + accelerationY * mass[particleA];
+      }
+
+      // 绘制粒子
+      for (let particle = 0; particle < mass.length; particle++) {
+        positionX[particle] += velocityX[particle];
+        positionY[particle] += velocityY[particle];
+        
+        fill(particleColors[particle]);
+        ellipse(positionX[particle], positionY[particle], mass[particle] * 1000, mass[particle] * 1000);
+      }
+    }
+
+    function clearParticles() {
+      mass = [];
+      positionX = [];
+      positionY = [];
+      velocityX = [];
+      velocityY = [];
+      particleColors = [];
+    }
+
+    function handleFile(file) {
+      if (file.type === 'image') {
+        img = loadImage(file.data, () => {
+          img.resize(50, 50);
+          img.loadPixels();
+          extractColors();
+          clearParticles();
+        });
+      }
+    }
+
+    function extractColors() {
+      let colorMap = new Map();
+      let step = 4;
+      
+      for (let i = 0; i < img.pixels.length; i += step * 4) {
+        let r = img.pixels[i];
+        let g = img.pixels[i + 1];
+        let b = img.pixels[i + 2];
+        let a = img.pixels[i + 3];
+        
+        if (a < 128) continue;
+        
+        let key = `${r >> 4}${g >> 4}${b >> 4}`;
+        colorMap.set(key, color(r, g, b, 192));
+      }
+
+      palette = Array.from(colorMap.values())
+        .sort(() => Math.random() - 0.5)
+        .slice(0, 5);
+
+      while (palette.length < 5) {
+        palette.push(color(random(255), random(255), random(255), 192));
+      }
+    }
+
+    function addNewParticle() {
+      mass.push(random(0.003, 0.03));
+      const x = touches.length > 0 ? touches[0].x : mouseX;
+      const y = touches.length > 0 ? touches[0].y : mouseY;
+      positionX.push(x);
+      positionY.push(y);
+      velocityX.push(0);
+      velocityY.push(0);
+      particleColors.push(random(palette));
+    }
+
+    // 移动端事件
+    function touchStarted() {
+      addNewParticle();
+      return false;
+    }
+
+    function touchMoved() {
+      addNewParticle();
+      return false;
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>
